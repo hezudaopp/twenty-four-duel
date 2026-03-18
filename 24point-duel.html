@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="24点对战">
+<title>24点对战</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+html,body{
+  height:100vh;height:100dvh;
+  overflow:hidden;
+  background:#0a0e1a;
+  font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
+  color:#fff;
+  touch-action:manipulation;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ===== Overlay Screens ===== */
+.screen{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;background:#0a0e1a;
+  transition:opacity .4s,visibility .4s;
+}
+.screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+.welcome-title{
+  font-size:clamp(40px,8vw,60px);font-weight:900;
+  background:linear-gradient(135deg,#00d2ff,#ff6b6b);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:4px;
+}
+.welcome-sub{font-size:17px;color:#555;margin-bottom:36px;letter-spacing:2px}
+.welcome-deco{font-size:28px;letter-spacing:16px;color:#2a2f45;margin-bottom:24px}
+
+.settings{display:flex;flex-direction:column;gap:14px;margin-bottom:32px;min-width:320px}
+.s-row{display:flex;align-items:center;gap:12px}
+.s-label{font-size:15px;color:#666;min-width:50px;text-align:right}
+.s-opts{display:flex;gap:8px}
+.s-btn{
+  padding:8px 18px;border:2px solid #1e2440;border-radius:10px;
+  background:#111622;color:#666;font-size:14px;cursor:pointer;transition:all .15s;
+}
+.s-btn.on{border-color:#00d2ff;color:#00d2ff;background:rgba(0,210,255,.07)}
+.s-btn:active{transform:scale(.95)}
+
+.go-btn{
+  padding:16px 64px;border:none;border-radius:16px;
+  background:linear-gradient(135deg,#00d2ff,#0077b6);
+  color:#fff;font-size:22px;font-weight:800;cursor:pointer;
+  box-shadow:0 4px 24px rgba(0,210,255,.25);letter-spacing:6px;transition:all .2s;
+}
+.go-btn:active{transform:scale(.95)}
+
+/* ===== Game Screen ===== */
+#game{display:none;flex-direction:column;height:100vh;height:100dvh}
+#game.on{display:flex}
+
+/* --- Player Area --- */
+.pa{
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:6px 12px;gap:5px;position:relative;overflow:hidden;
+}
+.pa.rot{transform:rotate(180deg)}
+.pa.off{pointer-events:none}
+.pa.off .nb,.pa.off .ob,.pa.off .ab{opacity:.3}
+
+.p1-bg{background:radial-gradient(ellipse at bottom center,rgba(0,210,255,.025) 0%,transparent 70%)}
+.p2-bg{background:radial-gradient(ellipse at bottom center,rgba(255,107,107,.025) 0%,transparent 70%)}
+
+/* Player info row */
+.pi{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:560px;padding:0 4px}
+.pn{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+.pd{width:10px;height:10px;border-radius:50%;display:inline-block}
+.p1c .pd{background:#00d2ff;box-shadow:0 0 8px #00d2ff}
+.p2c .pd{background:#ff6b6b;box-shadow:0 0 8px #ff6b6b}
+.ps{font-size:20px;font-weight:800}
+.p1c .ps{color:#00d2ff}
+.p2c .ps{color:#ff6b6b}
+
+/* Expression display */
+.ed{
+  width:100%;max-width:560px;min-height:46px;
+  padding:8px 14px;border:2px solid #1a1f35;border-radius:12px;
+  background:#0c1018;font-size:26px;
+  font-family:'SF Mono','Menlo','Courier New',monospace;
+  text-align:center;display:flex;align-items:center;justify-content:center;
+  gap:2px;flex-wrap:wrap;transition:border-color .2s,background .2s;
+}
+.ed.err{animation:shake .35s ease;border-color:#ff4444}
+.ed.ok{border-color:#00ff88;background:rgba(0,255,136,.04)}
+.ed-ph{color:#2a2f45;font-size:14px;font-family:-apple-system,sans-serif}
+.tk-n{color:#ffd700;font-weight:700}
+.tk-o{color:#b8b8ff;padding:0 2px}
+.tk-p{color:#555}
+
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%,60%{transform:translateX(-5px)}
+  40%,80%{transform:translateX(5px)}
+}
+
+/* Feedback line */
+.fb{font-size:13px;min-height:17px;text-align:center;color:#ff4444;opacity:0;transition:opacity .2s}
+.fb.vis{opacity:1}
+
+/* Number buttons */
+.nr{display:flex;gap:10px;justify-content:center}
+.nb{
+  width:70px;height:84px;border:2px solid rgba(255,255,255,.1);border-radius:12px;
+  background:linear-gradient(145deg,#1c2240,#141a2e);
+  color:#fff;font-size:30px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);transition:all .15s;position:relative;
+  min-height:44px;
+}
+.nb::before{content:attr(data-suit);position:absolute;top:4px;left:6px;font-size:10px;opacity:.45}
+.nb:active:not(.u){transform:scale(.92);background:linear-gradient(145deg,#28305a,#1c2240)}
+.nb.u{opacity:.18;transform:scale(.9);pointer-events:none}
+.nb.deal{animation:pop .3s ease backwards}
+.nb:nth-child(1).deal{animation-delay:0s}
+.nb:nth-child(2).deal{animation-delay:.07s}
+.nb:nth-child(3).deal{animation-delay:.14s}
+.nb:nth-child(4).deal{animation-delay:.21s}
+
+@keyframes pop{
+  from{transform:scale(0) rotate(-12deg);opacity:0}
+  to{transform:scale(1) rotate(0);opacity:1}
+}
+
+.nb.p1c{border-color:rgba(0,210,255,.15)}
+.nb.p2c{border-color:rgba(255,107,107,.15)}
+
+/* Operator buttons */
+.or{display:flex;gap:7px;justify-content:center}
+.ob{
+  width:50px;height:44px;border:2px solid #1e2440;border-radius:10px;
+  background:#111622;color:#9898d8;font-size:21px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .1s;
+}
+.ob:active{transform:scale(.9);background:#1a2040}
+
+/* Action buttons */
+.ar{display:flex;gap:7px;justify-content:center}
+.ab{
+  padding:0 18px;min-height:44px;border:2px solid #1e2440;border-radius:10px;
+  background:#111622;color:#777;font-size:14px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.ab:active{transform:scale(.94)}
+.ab.sub{border-color:rgba(0,255,136,.35);color:#00ff88;min-width:88px;font-size:15px}
+.ab.sub:active{background:rgba(0,255,136,.08)}
+
+/* Round overlay message */
+.rm{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:28px;font-weight:800;pointer-events:none;opacity:0;transition:opacity .3s;z-index:5;
+  background:rgba(10,14,26,.7);gap:6px;
+}
+.rm.vis{opacity:1}
+.rm-main{font-size:30px}
+.rm-sub{font-size:15px;font-weight:500;color:#888}
+.rm.w .rm-main{color:#00ff88}
+.rm.l .rm-main{color:#ff4444}
+.rm.d .rm-main{color:#ffd700}
+
+/* ===== Center Strip ===== */
+#mid{
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:16px;
+  padding:6px 16px;min-height:64px;
+  background:linear-gradient(90deg,rgba(0,210,255,.03),rgba(255,107,107,.03));
+  border-top:1px solid rgba(255,255,255,.04);
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.mi{display:flex;flex-direction:column;align-items:center;gap:1px}
+.mi-r{font-size:12px;color:#444;font-weight:600}
+.mi-t{font-size:21px;font-weight:800;color:#ffd700;font-variant-numeric:tabular-nums}
+.mi-t.urg{color:#ff4444;animation:pulse .5s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.4}}
+
+.mc{display:flex;gap:7px}
+.cc{
+  width:40px;height:54px;border-radius:5px;position:relative;
+  background:linear-gradient(135deg,#f8f5ee,#e5e0d4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;
+  box-shadow:0 2px 6px rgba(0,0,0,.3);
+}
+.cc::before{content:attr(data-n);position:absolute;top:2px;left:4px;font-size:10px;font-weight:700}
+.cc::after{content:attr(data-n);position:absolute;bottom:2px;right:4px;font-size:10px;font-weight:700;transform:rotate(180deg)}
+.cc.sr{color:#c00}.cc.sb{color:#222}
+.cc.da{animation:pop .35s ease backwards}
+.cc:nth-child(1).da{animation-delay:0s}
+.cc:nth-child(2).da{animation-delay:.08s}
+.cc:nth-child(3).da{animation-delay:.16s}
+.cc:nth-child(4).da{animation-delay:.24s}
+
+.mv{font-size:13px;color:#2a2f45;font-weight:700;letter-spacing:3px}
+
+/* ===== Result Screen ===== */
+.res-t{font-size:clamp(36px,7vw,52px);font-weight:900;margin-bottom:6px}
+.res-w{font-size:22px;margin-bottom:28px}
+.res-sc{display:flex;justify-content:center;gap:40px;margin-bottom:36px}
+.res-p{text-align:center}
+.res-pn{font-size:16px;color:#666;margin-bottom:6px}
+.res-ps{font-size:52px;font-weight:900}
+.res-p.rp1 .res-ps{color:#00d2ff}
+.res-p.rp2 .res-ps{color:#ff6b6b}
+.again{
+  padding:14px 44px;border:2px solid #ffd700;border-radius:14px;
+  background:rgba(255,215,0,.06);color:#ffd700;
+  font-size:18px;font-weight:700;cursor:pointer;transition:all .2s;
+}
+.again:active{transform:scale(.95);background:rgba(255,215,0,.12)}
+</style>
+</head>
+<body>
+
+<!-- ===== Welcome ===== -->
+<div id="welcome" class="screen">
+  <div class="welcome-deco">&#9824; &#9829; &#9830; &#9827;</div>
+  <div class="welcome-title">24 点对战</div>
+  <div class="welcome-sub">双人竞速 · 谁先算出 24</div>
+  <div class="settings">
+    <div class="s-row">
+      <span class="s-label">难度</span>
+      <div class="s-opts" id="so-diff">
+        <button class="s-btn" data-v="easy">简单 1-9</button>
+        <button class="s-btn on" data-v="normal">普通 1-13</button>
+      </div>
+    </div>
+    <div class="s-row">
+      <span class="s-label">局数</span>
+      <div class="s-opts" id="so-rounds">
+        <button class="s-btn" data-v="5">5 局</button>
+        <button class="s-btn on" data-v="10">10 局</button>
+        <button class="s-btn" data-v="15">15 局</button>
+      </div>
+    </div>
+    <div class="s-row">
+      <span class="s-label">限时</span>
+      <div class="s-opts" id="so-time">
+        <button class="s-btn" data-v="30">30 秒</button>
+        <button class="s-btn on" data-v="60">60 秒</button>
+        <button class="s-btn" data-v="90">90 秒</button>
+        <button class="s-btn" data-v="0">不限</button>
+      </div>
+    </div>
+  </div>
+  <button class="go-btn" id="go-btn">开 始</button>
+</div>
+
+<!-- ===== Game ===== -->
+<div id="game">
+  <!-- Player 2 (top, rotated 180°) -->
+  <div id="a1" class="pa rot p2-bg">
+    <div class="pi p2c">
+      <div class="pn"><span class="pd"></span>玩家二</div>
+      <div class="ps" id="s1">0</div>
+    </div>
+    <div class="ed" id="e1"><span class="ed-ph">点击数字和运算符组成算式</span></div>
+    <div class="fb" id="f1"></div>
+    <div class="nr" id="n1"></div>
+    <div class="or">
+      <button class="ob" data-a="op" data-p="1" data-o="+">+</button>
+      <button class="ob" data-a="op" data-p="1" data-o="-">&minus;</button>
+      <button class="ob" data-a="op" data-p="1" data-o="*">&times;</button>
+      <button class="ob" data-a="op" data-p="1" data-o="/">&divide;</button>
+      <button class="ob" data-a="op" data-p="1" data-o="(">(</button>
+      <button class="ob" data-a="op" data-p="1" data-o=")">)</button>
+    </div>
+    <div class="ar">
+      <button class="ab sub" data-a="submit" data-p="1">提交</button>
+      <button class="ab" data-a="clear" data-p="1">清空</button>
+      <button class="ab" data-a="back" data-p="1">&#9003;</button>
+      <button class="ab" data-a="pass" data-p="1">放弃</button>
+    </div>
+    <div class="rm" id="m1"><div class="rm-main"></div><div class="rm-sub"></div></div>
+  </div>
+
+  <!-- Center -->
+  <div id="mid">
+    <div class="mi">
+      <div class="mi-r" id="rnd">第 1 轮 / 共 10 轮</div>
+      <div class="mi-t" id="tmr">60</div>
+    </div>
+    <div class="mc" id="mcc"></div>
+    <div class="mv">VS</div>
+  </div>
+
+  <!-- Player 1 (bottom, normal) -->
+  <div id="a0" class="pa p1-bg">
+    <div class="pi p1c">
+      <div class="pn"><span class="pd"></span>玩家一</div>
+      <div class="ps" id="s0">0</div>
+    </div>
+    <div class="ed" id="e0"><span class="ed-ph">点击数字和运算符组成算式</span></div>
+    <div class="fb" id="f0"></div>
+    <div class="nr" id="n0"></div>
+    <div class="or">
+      <button class="ob" data-a="op" data-p="0" data-o="+">+</button>
+      <button class="ob" data-a="op" data-p="0" data-o="-">&minus;</button>
+      <button class="ob" data-a="op" data-p="0" data-o="*">&times;</button>
+      <button class="ob" data-a="op" data-p="0" data-o="/">&divide;</button>
+      <button class="ob" data-a="op" data-p="0" data-o="(">(</button>
+      <button class="ob" data-a="op" data-p="0" data-o=")">)</button>
+    </div>
+    <div class="ar">
+      <button class="ab sub" data-a="submit" data-p="0">提交</button>
+      <button class="ab" data-a="clear" data-p="0">清空</button>
+      <button class="ab" data-a="back" data-p="0">&#9003;</button>
+      <button class="ab" data-a="pass" data-p="0">放弃</button>
+    </div>
+    <div class="rm" id="m0"><div class="rm-main"></div><div class="rm-sub"></div></div>
+  </div>
+</div>
+
+<!-- ===== Result ===== -->
+<div id="result" class="screen hidden">
+  <div class="res-t" id="res-t">游戏结束</div>
+  <div class="res-w" id="res-w"></div>
+  <div class="res-sc">
+    <div class="res-p rp1"><div class="res-pn">玩家一</div><div class="res-ps" id="rs0">0</div></div>
+    <div class="res-p rp2"><div class="res-pn">玩家二</div><div class="res-ps" id="rs1">0</div></div>
+  </div>
+  <button class="again" id="again-btn">再来一局</button>
+</div>
+
+<script>
+function $(sel){
+  if(sel.startsWith('#')||sel.startsWith('.'))return document.querySelector(sel);
+  return document.getElementById(sel);
+}
+
+const SUIT_SYM=['♠','♥','♦','♣'];
+const SUIT_CLS=['sb','sr','sr','sb'];
+const OP_DISP={'+':'+','-':'−','*':'×','/':'÷'};
+
+const G={
+  phase:'welcome',
+  diff:'normal',rounds:10,limit:60,
+  round:0,nums:[],suits:[],sols:[],
+  timeLeft:0,tid:null,
+  p:[
+    {score:0,tok:[],used:[false,false,false,false],passed:false},
+    {score:0,tok:[],used:[false,false,false,false],passed:false},
+  ]
+};
+
+let wakeLock=null;
+
+/* ========== Welcome ========== */
+document.querySelectorAll('.s-opts').forEach(g=>{
+  g.addEventListener('click',e=>{
+    const b=e.target.closest('.s-btn');
+    if(!b)return;
+    g.querySelectorAll('.s-btn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+});
+
+$('go-btn').addEventListener('click',startGame);
+$('again-btn').addEventListener('click',()=>{
+  $('result').classList.add('hidden');
+  $('welcome').classList.remove('hidden');
+  $('game').classList.remove('on');
+  releaseWake();
+});
+
+/* ========== Game Lifecycle ========== */
+function startGame(){
+  G.diff=$('#so-diff .s-btn.on')?.dataset.v||'normal';
+  G.rounds=+($('#so-rounds .s-btn.on')?.dataset.v||10);
+  G.limit=+($('#so-time .s-btn.on')?.dataset.v??60);
+  G.round=0;
+  G.p[0].score=0;G.p[1].score=0;
+  $('s0').textContent='0';$('s1').textContent='0';
+  $('welcome').classList.add('hidden');
+  $('game').classList.add('on');
+  acquireWake();
+  setTimeout(startRound,400);
+}
+
+function startRound(){
+  G.round++;
+  G.phase='playing';
+  genNumbers();
+  for(let i=0;i<2;i++){
+    G.p[i].tok=[];
+    G.p[i].used=[false,false,false,false];
+    G.p[i].passed=false;
+    renderNums(i,true);
+    renderExpr(i);
+    hideFb(i);
+    hideMsg(i);
+    $(`a${i}`).classList.remove('off');
+  }
+  renderCenter(true);
+  startTimer();
+}
+
+function endRound(winner){
+  G.phase='over';
+  stopTimer();
+  $('a0').classList.add('off');
+  $('a1').classList.add('off');
+
+  if(winner>=0){
+    G.p[winner].score++;
+    $(`s${winner}`).textContent=G.p[winner].score;
+    const loser=1-winner;
+    showMsg(winner,'正确！+1 分','w');
+    const solText=G.sols.length?G.sols[0]:'';
+    showMsg(loser,'对手先答出','l',solText);
+  }else{
+    const solText=G.sols.length?('答案: '+G.sols[0]):'本轮无解';
+    showMsg(0,'本轮结束','d',solText);
+    showMsg(1,'本轮结束','d',solText);
+  }
+
+  setTimeout(()=>{
+    if(G.round>=G.rounds){endGame();return;}
+    startRound();
+  },2500);
+}
+
+function endGame(){
+  G.phase='end';
+  releaseWake();
+  const s0=G.p[0].score,s1=G.p[1].score;
+  $('rs0').textContent=s0;
+  $('rs1').textContent=s1;
+  if(s0>s1){
+    $('res-t').textContent='游戏结束';
+    $('res-w').textContent='玩家一 获胜！';
+    $('res-w').style.color='#00d2ff';
+  }else if(s1>s0){
+    $('res-t').textContent='游戏结束';
+    $('res-w').textContent='玩家二 获胜！';
+    $('res-w').style.color='#ff6b6b';
+  }else{
+    $('res-t').textContent='游戏结束';
+    $('res-w').textContent='平局！旗鼓相当';
+    $('res-w').style.color='#ffd700';
+  }
+  $('game').classList.remove('on');
+  $('result').classList.remove('hidden');
+}
+
+/* ========== Timer ========== */
+function startTimer(){
+  stopTimer();
+  if(G.limit===0){
+    $('tmr').textContent='∞';
+    $('tmr').classList.remove('urg');
+    return;
+  }
+  G.timeLeft=G.limit;
+  renderTimer();
+  G.tid=setInterval(()=>{
+    G.timeLeft--;
+    renderTimer();
+    if(G.timeLeft<=0){stopTimer();endRound(-1);}
+  },1000);
+}
+
+function stopTimer(){if(G.tid){clearInterval(G.tid);G.tid=null;}}
+
+function renderTimer(){
+  const el=$('tmr');
+  el.textContent=G.timeLeft;
+  el.classList.toggle('urg',G.timeLeft<=10);
+}
+
+/* ========== Player Actions ========== */
+function handleNum(p,idx){
+  const pl=G.p[p];
+  if(pl.used[idx])return;
+  pl.tok.push({t:'n',v:G.nums[idx],ci:idx});
+  pl.used[idx]=true;
+  renderNums(p);renderExpr(p);hideFb(p);
+}
+
+function handleOp(p,op){
+  G.p[p].tok.push({t:op==='('||op===')'?'p':'o',v:op});
+  renderExpr(p);hideFb(p);
+}
+
+function handleBack(p){
+  const pl=G.p[p];
+  if(!pl.tok.length)return;
+  const rm=pl.tok.pop();
+  if(rm.t==='n')pl.used[rm.ci]=false;
+  renderNums(p);renderExpr(p);hideFb(p);
+}
+
+function handleClear(p){
+  G.p[p].tok=[];
+  G.p[p].used=[false,false,false,false];
+  renderNums(p);renderExpr(p);hideFb(p);
+}
+
+function handleSubmit(p){
+  const pl=G.p[p];
+  const numToks=pl.tok.filter(t=>t.t==='n');
+  if(numToks.length!==4||pl.used.some(u=>!u)){
+    showFb(p,'请使用全部 4 个数字');
+    shakeExpr(p);return;
+  }
+  const str=pl.tok.map(t=>t.v).join('');
+  let val;
+  try{val=Function('"use strict";return('+str+')')();}
+  catch{showFb(p,'算式格式错误');shakeExpr(p);return;}
+  if(!isFinite(val)){showFb(p,'算式结果无效');shakeExpr(p);return;}
+  if(Math.abs(val-24)<1e-9){
+    $(`e${p}`).classList.add('ok');
+    endRound(p);
+  }else{
+    const d=Number.isInteger(val)?val:val.toFixed(2);
+    showFb(p,`= ${d}，不等于 24`);
+    shakeExpr(p);
+  }
+}
+
+function handlePass(p){
+  G.p[p].passed=true;
+  showFb(p,'已放弃，等待对手...');
+  if(G.p[0].passed&&G.p[1].passed)endRound(-1);
+}
+
+/* ========== Rendering ========== */
+function renderNums(p,isNew){
+  const c=$(`n${p}`);
+  if(isNew){
+    c.innerHTML=G.nums.map((v,i)=>{
+      const s=G.suits[i];
+      return `<button class="nb deal ${p===0?'p1c':'p2c'}" data-a="num" data-p="${p}" data-i="${i}" data-suit="${SUIT_SYM[s]}">${v}</button>`;
+    }).join('');
+    c.querySelectorAll('.deal').forEach(b=>b.addEventListener('animationend',()=>b.classList.remove('deal'),{once:true}));
+  }
+  const btns=c.children;
+  for(let i=0;i<btns.length;i++)btns[i].classList.toggle('u',G.p[p].used[i]);
+}
+
+function renderExpr(p){
+  const c=$(`e${p}`);
+  c.classList.remove('ok','err');
+  const tok=G.p[p].tok;
+  if(!tok.length){c.innerHTML='<span class="ed-ph">点击数字和运算符组成算式</span>';return;}
+  c.innerHTML=tok.map(t=>{
+    if(t.t==='n')return `<span class="tk-n">${t.v}</span>`;
+    if(t.t==='o')return `<span class="tk-o">${OP_DISP[t.v]||t.v}</span>`;
+    return `<span class="tk-p">${t.v}</span>`;
+  }).join('');
+}
+
+function renderCenter(isNew){
+  $('rnd').textContent=`第 ${G.round} 轮 / 共 ${G.rounds} 轮`;
+  if(isNew){
+    $('mcc').innerHTML=G.nums.map((v,i)=>{
+      const s=G.suits[i];
+      return `<div class="cc da ${SUIT_CLS[s]}" data-n="${v}">${SUIT_SYM[s]}</div>`;
+    }).join('');
+  }
+}
+
+function showFb(p,txt){const el=$(`f${p}`);el.textContent=txt;el.classList.add('vis');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('vis'),2500);}
+function hideFb(p){const el=$(`f${p}`);el.classList.remove('vis');el.textContent='';}
+
+function shakeExpr(p){const el=$(`e${p}`);el.classList.remove('err');void el.offsetWidth;el.classList.add('err');setTimeout(()=>el.classList.remove('err'),400);}
+
+function showMsg(p,main,cls,sub){
+  const el=$(`m${p}`);
+  el.querySelector('.rm-main').textContent=main;
+  el.querySelector('.rm-sub').textContent=sub||'';
+  el.className='rm vis '+cls;
+}
+function hideMsg(p){$(`m${p}`).className='rm';}
+
+/* ========== Event Delegation ========== */
+$('game').addEventListener('click',e=>{
+  if(G.phase!=='playing')return;
+  const btn=e.target.closest('[data-a]');
+  if(!btn)return;
+  const a=btn.dataset.a,p=+btn.dataset.p;
+  if(a!=='pass')G.p[p].passed=false;
+  switch(a){
+    case'num':handleNum(p,+btn.dataset.i);break;
+    case'op':handleOp(p,btn.dataset.o);break;
+    case'submit':handleSubmit(p);break;
+    case'clear':handleClear(p);break;
+    case'back':handleBack(p);break;
+    case'pass':handlePass(p);break;
+  }
+});
+
+/* ========== Number Generation & Solver ========== */
+function maxN(){return G.diff==='easy'?9:13;}
+
+function genNumbers(){
+  const m=maxN();
+  for(let a=0;a<500;a++){
+    const ns=[rnd(1,m),rnd(1,m),rnd(1,m),rnd(1,m)];
+    const sols=solve24(ns);
+    if(sols.length){
+      G.nums=ns;
+      G.suits=[rnd(0,3),rnd(0,3),rnd(0,3),rnd(0,3)];
+      G.sols=sols;
+      return;
+    }
+  }
+  G.nums=[1,2,3,4];G.suits=[0,1,2,3];G.sols=solve24(G.nums);
+}
+
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function solve24(ns){
+  const res=new Set(),ops=['+','-','*','/'];
+  for(const p of perms(ns)){
+    for(const a of ops)for(const b of ops)for(const c of ops){
+      const es=[
+        `((${p[0]}${a}${p[1]})${b}${p[2]})${c}${p[3]}`,
+        `(${p[0]}${a}(${p[1]}${b}${p[2]}))${c}${p[3]}`,
+        `(${p[0]}${a}${p[1]})${b}(${p[2]}${c}${p[3]})`,
+        `${p[0]}${a}((${p[1]}${b}${p[2]})${c}${p[3]})`,
+        `${p[0]}${a}(${p[1]}${b}(${p[2]}${c}${p[3]}))`,
+      ];
+      for(const x of es){try{if(Math.abs(eval(x)-24)<1e-9)res.add(x.replace(/\*/g,'×').replace(/\//g,'÷'));}catch{}}
+    }
+  }
+  return[...res];
+}
+
+function perms(a){
+  if(a.length<=1)return[a];
+  const r=[];
+  for(let i=0;i<a.length;i++){
+    const rest=[...a.slice(0,i),...a.slice(i+1)];
+    for(const p of perms(rest))r.push([a[i],...p]);
+  }
+  return r;
+}
+
+/* ========== Wake Lock ========== */
+async function acquireWake(){
+  try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch{}}
+function releaseWake(){if(wakeLock){wakeLock.release();wakeLock=null;}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&G.phase==='playing')acquireWake();});
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+*.swp
+
+# iOS build
+TwentyFourDuel.swiftpm/build/
+TwentyFourDuel.swiftpm/.build/
+
+# Android build
+TwentyFourDuel-Android/build/
+TwentyFourDuel-Android/app/build/
+TwentyFourDuel-Android/.gradle/
+TwentyFourDuel-Android/local.properties
+TwentyFourDuel-Android/release.keystore
+TwentyFourDuel-Android/TwentyFourDuel-v1.0.apk
+
+# IDE
+.idea/
+*.iml
+.cursor/
+
+# Xcode user data
+*.xcuserstate
+xcuserdata/
